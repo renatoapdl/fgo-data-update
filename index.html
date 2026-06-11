@@ -134,7 +134,7 @@
     
     // 3. Mapeia as linhas restantes para objetos
     return linhas.slice(1).map(linha => {
-        const valores = linha.split(',').map(v => v.trim());
+        const valores = linha.split(';').map(v => v.trim());
         return cabecalho.reduce((obj, col, i) => {
             obj[col] = valores[i];
             return obj;
