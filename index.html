@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoramento de Discos - VLBI</title>
+    <style>
+        /* Estilo visual inspirado no modelo MPIfR-Bonn */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #f0f2f5; 
+            margin: 20px;
+        }
+        h1 { color: #333; text-align: center; }
+        
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            background: white; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            margin-top: 20px;
+        }
+        
+        th { 
+            background: #2c3e50; 
+            color: white; 
+            padding: 12px; 
+            text-transform: uppercase;
+            font-size: 14px;
+        }
+        
+        td { 
+            padding: 10px; 
+            border-bottom: 1px solid #ddd; 
+            text-align: center; 
+            font-size: 14px;
+        }
+
+        /* Cores de Status (Estilo Bonn) */
+        .status-free { background-color: #d4edda !important; color: #155724; } /* Verde: Liberado */
+        .status-block { background-color: #fff3cd !important; color: #856404; } /* Amarelo: HOLD */
+        .status-fail { background-color: #f8d7da !important; color: #721c24; }  /* Vermelho: FALHA */
+        
+        tr:hover { background-color: #f1f1f1; }
+        strong { color: #2c3e50; }
+    </style>
+</head>
+<body>
+    <h1>Status de Gravação e Transferência de Dados</h1>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Disco</th>
+                <th>Capacidade</th>
+                <th>Sessões Gravadas</th>
+                <th>Uso (GB)</th>
+                <th>Status NASA</th>
+                <th>Status Físico</th>
+            </tr>
+        </thead>
+        <tbody id="tabela-corpo">
+            <!-- Os dados serão inseridos aqui pelo JavaScript -->
+        </tbody>
+    </table>
+
+    <script>
+        async function carregarDados() {
+            try {
+                // Busca os arquivos CSV no mesmo diretório
+                const resDiscos = await fetch('Tabela_Discos.csv');
+                const resSessoes = await fetch('Tabela_Sessoes.csv');
+                
+                const textoDiscos = await resDiscos.text();
+                const textoSessoes = await resSessoes.text();
+
+                const discos = csvParaJSON(textoDiscos);
+                const sessoes = csvParaJSON(textoSessoes);
+
+                const tabelaCorpo = document.getElementById('tabela-corpo');
+                tabelaCorpo.innerHTML = '';
+
+                discos.forEach(disco => {
+                    // Filtra as sessões pertencentes a este disco [1]
+                    const sessoesDoDisco = sessoes.filter(s => s.DISCO === disco.DISCO);
+                    
+                    // Calcula o uso total somando o tamanho das sessões [1]
+                    const usoTotal = sessoesDoDisco.reduce((acc, s) => acc + parseFloat(s.TAMANHO_SESSAO_GB || 0), 0);
+                    
+                    // Lógica de Status: FAIL se o hardware falhou, BLOCK se houver HOLD, FREE se tudo RELEASE [1, 2]
+                    let statusNASA = sessoesDoDisco.length > 0 ? "FREE" : "VAZIO";
+                    
+                    if (sessoesDoDisco.some(s => s.STATUS_NASA === 'HOLD')) {
+                        statusNASA = "BLOCK";
+                    }
+                    
+                    // Prioridade máxima para falha física [2]
+                    if (disco.STATUS_FISICO === 'FALHA') {
+                        statusNASA = "FAIL";
+                    }
+
+                    // Define a classe CSS baseada no status
+                    const classeCor = statusNASA === 'FREE' ? 'status-free' : 
+                                     statusNASA === 'BLOCK' ? 'status-block' : 
+                                     statusNASA === 'FAIL' ? 'status-fail' : '';
+
+                    const row = `
+                        <tr class="${classeCor}">
+                            <td><strong>${disco.DISCO}</strong></td>
+                            <td>${disco.CAPACIDADE_TOTAL_GB} GB</td>
+                            <td>${sessoesDoDisco.map(s => s.COD_SESSAO).join(', ') || '-'}</td>
+                            <td>${usoTotal} GB</td>
+                            <td>${statusNASA}</td>
+                            <td>${disco.STATUS_FISICO}</td>
+                        </tr>
+                    `;
+                    tabelaCorpo.innerHTML += row;
+                });
+            } catch (error) {
+                console.error("Erro ao carregar os CSVs:", error);
+                document.getElementById('tabela-corpo').innerHTML = '<tr><td colspan="6">Erro ao carregar dados. Verifique os arquivos CSV.</td></tr>';
+            }
+        }
+
+        function csvParaJSON(csv) {
+            const linhas = csv.split('\n').filter(row => row.trim() !== '');
+            const cabecalho = linhas.split(',').map(h => h.trim());
+            return linhas.slice(1).map(linha => {
+                const valores = linha.split(',').map(v => v.trim());
+                return cabecalho.reduce((obj, col, i) => {
+                    obj[col] = valores[i];
+                    return obj;
+                }, {});
+            });
+        }
+
+        window.onload = carregarDados;
+    </script>
+</body>
+</html>
