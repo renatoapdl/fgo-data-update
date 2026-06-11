@@ -123,16 +123,24 @@
         }
 
         function csvParaJSON(csv) {
-            const linhas = csv.split('\n').filter(row => row.trim() !== '');
-            const cabecalho = linhas.split(',').map(h => h.trim());
-            return linhas.slice(1).map(linha => {
-                const valores = linha.split(',').map(v => v.trim());
-                return cabecalho.reduce((obj, col, i) => {
-                    obj[col] = valores[i];
-                    return obj;
-                }, {});
-            });
-        }
+    // 1. Divide o texto em uma lista de linhas
+    const linhas = csv.split('\n').filter(row => row.trim() !== '');
+    
+    if (linhas.length === 0) return [];
+
+    // 2. CORREÇÃO: Pegamos a primeira linha  para criar o cabeçalho
+    // Se o seu CSV usar ponto e vírgula, troque o ',' por ';' abaixo
+    const cabecalho = linhas.split(',').map(h => h.trim()); 
+    
+    // 3. Mapeia as linhas restantes para objetos
+    return linhas.slice(1).map(linha => {
+        const valores = linha.split(',').map(v => v.trim());
+        return cabecalho.reduce((obj, col, i) => {
+            obj[col] = valores[i];
+            return obj;
+        }, {});
+    });
+}
 
         window.onload = carregarDados;
     </script>
