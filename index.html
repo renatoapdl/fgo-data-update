@@ -69,12 +69,12 @@
         }
 
 function csvParaJSON(csv) {
-    // 1. Transforma o texto bruto em uma lista de linhas
-    const linhas = csv.split('\n').filter(row => row.trim() !== '');
+    // 1. Transforma o texto bruto em uma lista de linhas e remove linhas vazias
+    const linhas = csv.trim().split('\n').filter(row => row.trim() !== '');
     
     if (linhas.length === 0) return [];
 
-    // 2. CORREÇÃO: Usamos linhas para pegar APENAS a primeira linha (o cabeçalho)
+    // 2. CORREÇÃO: Pegamos apenas o índice  (a primeira linha) para o cabeçalho
     const cabecalho = linhas.split(',').map(h => h.trim()); 
     
     // 3. Mapeia o restante das linhas para criar os objetos
