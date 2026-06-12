@@ -69,14 +69,20 @@
         }
 
         function csvParaJSON(csv) {
-            const linhas = csv.split('\n').filter(r => r.trim() !== '');
-            if (linhas.length === 0) return [];
-            const cabecalho = linhas.split(',').map(h => h.trim());
-            return linhas.slice(1).map(l => {
-                const dados = l.split(',').map(v => v.trim());
-                return cabecalho.reduce((obj, col, i) => { obj[col] = dados[i]; return obj; }, {});
-            });
-        }
+    const linhas = csv.split('\n').filter(row => row.trim() !== '');
+    if (linhas.length === 0) return [];
+
+    // IMPORTANTE: Use linhas para pegar a primeira linha (cabeçalho)
+    const cabecalho = linhas.split(',').map(h => h.trim()); 
+    
+    return linhas.slice(1).map(linha => {
+        const valores = linha.split(',').map(v => v.trim());
+        return cabecalho.reduce((obj, col, i) => {
+            obj[col] = valores[i];
+            return obj;
+        }, {});
+    });
+}
         window.onload = carregarDados;
     </script>
 </body>
