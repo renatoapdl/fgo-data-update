@@ -32,7 +32,7 @@
     </table>
 
     <script>
-        async function carregarDados() {
+       async function carregarDados() {
     try {
         const resDiscos = await fetch('Tabela_Discos.csv');
         const resSessoes = await fetch('Tabela_Sessoes.csv');
@@ -44,15 +44,15 @@
         corpo.innerHTML = '';
 
         discos.forEach(disco => {
-            // Filtra as sessões do disco atual
             const sessoesDisco = sessoes.filter(s => s.DISCO === disco.DISCO);
             
-            // Soma o uso total baseado na sua Tabela_Sessoes [1]
+            // Soma o uso total (Ex: para UVLBI+86 resultará em 6700 GB) [1]
             const usoTotal = sessoesDisco.reduce((acc, s) => acc + parseFloat(s.TAMANHO_SESSAO_GB || 0), 0);
             
-            // Lógica de Status: FAIL (Físico), BLOCK (NASA HOLD) ou FREE (NASA RELEASE) [1-3]
             let statusGeral = sessoesDisco.length > 0 ? "FREE" : "VAZIO";
+            // Se houver qualquer sessão em HOLD (Ex: USN-0041 possui RV179 em HOLD) [1]
             if (sessoesDisco.some(s => s.STATUS_NASA === 'HOLD')) statusGeral = "BLOCK";
+            // Prioridade para falha física (Ex: UVLBI+75 está em FALHA) [2]
             if (disco.STATUS_FISICO === 'FALHA') statusGeral = "FAIL";
 
             const cor = statusGeral === 'FREE' ? 'status-free' : 
@@ -69,19 +69,24 @@
                     <td>${disco.STATUS_FISICO}</td>
                 </tr>`;
         });
-    } catch (e) { console.error("Erro no carregamento:", e); }
+    } catch (e) { 
+        console.error("Erro no carregamento:", e); 
+    }
 }
 
 function csvParaJSON(csv) {
     const linhas = csv.trim().split('\n').filter(r => r.trim() !== '');
     if (linhas.length === 0) return [];
     
-    // A CORREÇÃO ESTÁ AQUI: Usamos  para pegar a primeira linha da lista
+    // A MUDANÇA REAL ESTÁ AQUI: o índice  para pegar o cabeçalho
     const cabecalho = linhas.split(',').map(h => h.trim()); 
     
     return linhas.slice(1).map(l => {
         const dados = l.split(',').map(v => v.trim());
-        return cabecalho.reduce((obj, col, i) => { obj[col] = dados[i]; return obj; }, {});
+        return cabecalho.reduce((obj, col, i) => { 
+            obj[col] = dados[i]; 
+            return obj; 
+        }, {});
     });
 }
 window.onload = carregarDados;
