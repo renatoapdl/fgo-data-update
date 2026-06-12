@@ -33,57 +33,58 @@
 
     <script>
         async function carregarDados() {
-            try {
-                const resDiscos = await fetch('Tabela_Discos.csv');
-                const resSessoes = await fetch('Tabela_Sessoes.csv');
-                
-                const discos = csvParaJSON(await resDiscos.text());
-                const sessoes = csvParaJSON(await resSessoes.text());
+    try {
+        const resDiscos = await fetch('Tabela_Discos.csv');
+        const resSessoes = await fetch('Tabela_Sessoes.csv');
+        
+        const discos = csvParaJSON(await resDiscos.text());
+        const sessoes = csvParaJSON(await resSessoes.text());
 
-                const corpo = document.getElementById('tabela-corpo');
-                corpo.innerHTML = '';
+        const corpo = document.getElementById('tabela-corpo');
+        corpo.innerHTML = '';
 
-                discos.forEach(disco => {
-                    const sessoesDisco = sessoes.filter(s => s.DISCO === disco.DISCO);
-                    const usoTotal = sessoesDisco.reduce((acc, s) => acc + parseFloat(s.TAMANHO_SESSAO_GB || 0), 0);
-                    
-                    let statusGeral = sessoesDisco.length > 0 ? "FREE" : "VAZIO";
-                    if (sessoesDisco.some(s => s.STATUS_NASA === 'HOLD')) statusGeral = "BLOCK";
-                    if (disco.STATUS_FISICO === 'FALHA') statusGeral = "FAIL";
+        discos.forEach(disco => {
+            // Filtra as sessões do disco atual
+            const sessoesDisco = sessoes.filter(s => s.DISCO === disco.DISCO);
+            
+            // Soma o uso total baseado na sua Tabela_Sessoes [1]
+            const usoTotal = sessoesDisco.reduce((acc, s) => acc + parseFloat(s.TAMANHO_SESSAO_GB || 0), 0);
+            
+            // Lógica de Status: FAIL (Físico), BLOCK (NASA HOLD) ou FREE (NASA RELEASE) [1-3]
+            let statusGeral = sessoesDisco.length > 0 ? "FREE" : "VAZIO";
+            if (sessoesDisco.some(s => s.STATUS_NASA === 'HOLD')) statusGeral = "BLOCK";
+            if (disco.STATUS_FISICO === 'FALHA') statusGeral = "FAIL";
 
-                    const cor = statusGeral === 'FREE' ? 'status-free' : 
-                                statusGeral === 'BLOCK' ? 'status-block' : 
-                                statusGeral === 'FAIL' ? 'status-fail' : '';
+            const cor = statusGeral === 'FREE' ? 'status-free' : 
+                        statusGeral === 'BLOCK' ? 'status-block' : 
+                        statusGeral === 'FAIL' ? 'status-fail' : '';
 
-                    corpo.innerHTML += `
-                        <tr class="${cor}">
-                            <td><strong>${disco.DISCO}</strong></td>
-                            <td>${disco.CAPACIDADE_TOTAL_GB} GB</td>
-                            <td>${sessoesDisco.map(s => s.COD_SESSAO).join(', ') || '-'}</td>
-                            <td>${usoTotal} GB</td>
-                            <td>${statusGeral}</td>
-                            <td>${disco.STATUS_FISICO}</td>
-                        </tr>`;
-                });
-            } catch (e) { console.error("Erro:", e); }
-        }
+            corpo.innerHTML += `
+                <tr class="${cor}">
+                    <td><strong>${disco.DISCO}</strong></td>
+                    <td>${disco.CAPACIDADE_TOTAL_GB} GB</td>
+                    <td>${sessoesDisco.map(s => s.COD_SESSAO).join(', ') || '-'}</td>
+                    <td>${usoTotal} GB</td>
+                    <td>${statusGeral}</td>
+                    <td>${disco.STATUS_FISICO}</td>
+                </tr>`;
+        });
+    } catch (e) { console.error("Erro no carregamento:", e); }
+}
 
 function csvParaJSON(csv) {
-        const linhas = csv.trim().split('\n').filter(row => row.trim() !== '');
-        if (linhas.length === 0) return [];
-
-        //  pega apenas a primeira linha
-        const cabecalho = linhas.split(',').map(h => h.trim()); 
-        
-        return linhas.slice(1).map(linha => {
-            const valores = linha.split(',').map(v => v.trim());
-            return cabecalho.reduce((obj, col, i) => {
-                obj[col] = valores[i];
-                return obj;
-            }, {});
-        });
-    }
-        window.onload = carregarDados;
+    const linhas = csv.trim().split('\n').filter(r => r.trim() !== '');
+    if (linhas.length === 0) return [];
+    
+    // A CORREÇÃO ESTÁ AQUI: Usamos  para pegar a primeira linha da lista
+    const cabecalho = linhas.split(',').map(h => h.trim()); 
+    
+    return linhas.slice(1).map(l => {
+        const dados = l.split(',').map(v => v.trim());
+        return cabecalho.reduce((obj, col, i) => { obj[col] = dados[i]; return obj; }, {});
+    });
+}
+window.onload = carregarDados;
     </script>
 </body>
 </html>
