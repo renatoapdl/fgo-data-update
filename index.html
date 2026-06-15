@@ -2,89 +2,101 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard de Discos VLBI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoramento VLBI - Status de Discos</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f8f9fa; padding: 20px; }
-        h1 { color: #2c3e50; text-align: center; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-        th { background: #34495e; color: white; padding: 12px; text-align: left; }
-        td { padding: 10px; border-bottom: 1px solid #eee; font-size: 14px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #1a73e8; text-align: center; margin-bottom: 30px; }
         
-        /* Cores de Status baseadas na lógica consolidada */
-        .status-free { background-color: #d4edda !important; color: #155724; }  /* Verde: Tudo RELEASE */
-        .status-block { background-color: #fff3cd !important; color: #856404; } /* Amarelo: Algum HOLD */
-        .status-fail { background-color: #f8d7da !important; color: #721c24; }  /* Vermelho: FALHA física */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background-color: #3c4043; color: white; padding: 12px; text-align: left; font-size: 14px; }
+        td { padding: 12px; border-bottom: 1px solid #e0e0e0; font-size: 13px; vertical-align: top; }
         
-        .disco-nome { font-weight: bold; color: #2c3e50; }
-        .sessoes-lista { font-size: 12px; color: #666; max-width: 300px; word-wrap: break-word; }
+        /* Cores de Status baseadas nas fontes */
+        .status-free { background-color: #e6f4ea; color: #137333; }   /* Verde: RELEASE */
+        .status-block { background-color: #fef7e0; color: #b06000; }  /* Amarelo: HOLD */
+        .status-fail { background-color: #fce8e6; color: #c5221f; font-weight: bold; } /* Vermelho: FALHA */
+        
+        .uso-bar { font-weight: bold; color: #202124; }
+        .sessoes-text { color: #5f6368; line-height: 1.4; font-family: monospace; }
+        tr:hover { background-color: #f8f9fa; }
     </style>
 </head>
 <body>
 
-    <h1>Monitoramento de Transferências de Discos</h1>
-
-    <table>
+<div class="container">
+    <h1>Painel de Controle de Discos</h1>
+    <table id="tabela-vlbi">
         <thead>
             <tr>
                 <th>Disco</th>
                 <th>Capacidade</th>
-                <th>Sessões (Cód, Tamanho, Status)</th>
-                <th>Uso Total</th>
+                <th>Status Físico</th>
+                <th>Sessões Gravadas</th>
+                <th>Uso (GB)</th>
                 <th>Status NASA</th>
-                <th>Saúde Física</th>
             </tr>
         </thead>
-        <tbody id="tabela-corpo">
-            <tr><td colspan="6">Carregando dados...</td></tr>
+        <tbody id="corpo-tabela">
+            <tr><td colspan="6" style="text-align:center;">Carregando dados das fontes...</td></tr>
         </tbody>
     </table>
+</div>
 
-    <script>
-        async function carregarDashboard() {
-            try {
-                // Busca a Tabela_Mestra que você gerou com o script Python
-                const response = await fetch('Tabela_Mestra.csv');
-                const csv = await response.text();
+<script>
+    async function carregarDados() {
+        try {
+            // Busca o arquivo consolidado pelo seu script Python
+            const resposta = await fetch('Tabela_Mestra.csv');
+            const csvTexto = await resposta.text();
+            
+            // Converte CSV em linhas, limpando espaços extras
+            const linhas = csvTexto.trim().split('\n').map(l => l.trim());
+            const corpo = document.getElementById('corpo-tabela');
+            corpo.innerHTML = '';
+
+            // Ignora o cabeçalho (i=0) e processa os dados
+            for (let i = 1; i < linhas.length; i++) {
+                // O regex abaixo lida com campos que possuem vírgulas dentro de aspas (Sessões Detalhadas)
+                const colunas = linhas[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
                 
-                // Divide em linhas e remove o cabeçalho
-                const linhas = csv.trim().split('\n').slice(1);
-                const corpo = document.getElementById('tabela-corpo');
-                corpo.innerHTML = '';
+                if (!colunas || colunas.length < 6) continue;
 
-                linhas.forEach(linha => {
-                    // Divide as colunas (considerando que o Python gerou com vírgulas)
-                    const col = linha.split(',');
-                    if (col.length < 6) return;
+                // Mapeamento baseado no merge do Python:
+                const disco = colunas;
+                const capacidade = colunas[1];
+                const statusFisico = colunas[2];
+                const sessoes = colunas[3].replace(/"/g, '').replace(/\|/g, '<br>'); // Troca | por quebra de linha
+                const usoTotal = colunas[4];
+                const statusNASA = colunas;
 
-                    const disco = col;
-                    const capacidade = col[1];
-                    const sessoes = col[4].replace(/"/g, '').replace(/;/g, '<br>'); // Formata lista de sessões
-                    const usoTotal = col[2];
-                    const statusNASA = col[3];
-                    const statusFisico = col;
+                // Lógica de Veredito Visual
+                let classeStatus = 'status-free';
+                if (statusNASA === 'BLOCK') classeStatus = 'status-block'; // Ex: USN-0041 tem HOLD [4]
+                if (statusFisico === 'FALHA') classeStatus = 'status-fail'; // Ex: UVLBI+75 está em FALHA [3]
 
-                    // Define a cor da linha baseado na lógica das suas fontes
-                    let classeCor = 'status-free';
-                    if (statusNASA === 'BLOCK') classeCor = 'status-block';
-                    if (statusFisico === 'FALHA') classeCor = 'status-fail';
-
-                    corpo.innerHTML += `
-                        <tr class="${classeCor}">
-                            <td class="disco-nome">${disco}</td>
-                            <td>${capacidade} GB</td>
-                            <td class="sessoes-lista">${sessoes}</td>
-                            <td><strong>${usoTotal} GB</strong></td>
-                            <td>${statusNASA}</td>
-                            <td>${statusFisico}</td>
-                        </tr>`;
-                });
-            } catch (error) {
-                console.error("Erro ao carregar CSV:", error);
-                document.getElementById('tabela-corpo').innerHTML = '<tr><td colspan="6">Erro ao carregar dados.</td></tr>';
+                const novaLinha = `
+                    <tr class="${classeStatus}">
+                        <td><strong>${disco}</strong></td>
+                        <td>${capacidade} GB</td>
+                        <td>${statusFisico}</td>
+                        <td class="sessoes-text">${sessoes}</td>
+                        <td class="uso-bar">${usoTotal} GB</td>
+                        <td>${statusNASA}</td>
+                    </tr>
+                `;
+                corpo.innerHTML += novaLinha;
             }
+        } catch (erro) {
+            console.error("Erro ao carregar fontes:", erro);
+            document.getElementById('corpo-tabela').innerHTML = '<tr><td colspan="6">Erro ao conectar com a Tabela_Mestra.csv.</td></tr>';
         }
+    }
 
-        window.onload = carregarDashboard;
-    </script>
+    // Inicializa a carga ao abrir o site
+    window.onload = carregarDados;
+</script>
+
 </body>
 </html>
