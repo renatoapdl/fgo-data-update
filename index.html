@@ -2,101 +2,63 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitoramento VLBI - Status de Discos</title>
+    <title>Painel VLBI</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
-        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h1 { color: #1a73e8; text-align: center; margin-bottom: 30px; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { background-color: #3c4043; color: white; padding: 12px; text-align: left; font-size: 14px; }
-        td { padding: 12px; border-bottom: 1px solid #e0e0e0; font-size: 13px; vertical-align: top; }
-        
-        /* Cores de Status baseadas nas fontes */
-        .status-free { background-color: #e6f4ea; color: #137333; }   /* Verde: RELEASE */
-        .status-block { background-color: #fef7e0; color: #b06000; }  /* Amarelo: HOLD */
-        .status-fail { background-color: #fce8e6; color: #c5221f; font-weight: bold; } /* Vermelho: FALHA */
-        
-        .uso-bar { font-weight: bold; color: #202124; }
-        .sessoes-text { color: #5f6368; line-height: 1.4; font-family: monospace; }
-        tr:hover { background-color: #f8f9fa; }
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
+        table { width: 100%; border-collapse: collapse; background: white; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        th { background: #333; color: white; }
+        .status-free { background: #d4edda; } 
+        .status-block { background: #fff3cd; } 
+        .status-fail { background: #f8d7da; color: #721c24; font-weight: bold; }
     </style>
 </head>
 <body>
-
-<div class="container">
-    <h1>Painel de Controle de Discos</h1>
-    <table id="tabela-vlbi">
+    <h1>Status de Discos - Monitoramento</h1>
+    <table>
         <thead>
             <tr>
                 <th>Disco</th>
                 <th>Capacidade</th>
-                <th>Status Físico</th>
-                <th>Sessões Gravadas</th>
-                <th>Uso (GB)</th>
+                <th>Saúde Física</th>
+                <th>Sessões</th>
+                <th>Uso Total</th>
                 <th>Status NASA</th>
             </tr>
         </thead>
-        <tbody id="corpo-tabela">
-            <tr><td colspan="6" style="text-align:center;">Carregando dados das fontes...</td></tr>
-        </tbody>
+        <tbody id="corpo"></tbody>
     </table>
-</div>
 
-<script>
-    async function carregarDados() {
-        try {
-            // Busca o arquivo consolidado pelo seu script Python
-            const resposta = await fetch('Tabela_Mestra.csv');
-            const csvTexto = await resposta.text();
+    <script>
+        async function carregar() {
+            const res = await fetch('Tabela_Mestra.csv');
+            const texto = await res.text();
+            const linhas = texto.trim().split('\n').slice(1);
+            const corpo = document.getElementById('corpo');
             
-            // Converte CSV em linhas, limpando espaços extras
-            const linhas = csvTexto.trim().split('\n').map(l => l.trim());
-            const corpo = document.getElementById('corpo-tabela');
-            corpo.innerHTML = '';
+            corpo.innerHTML = linhas.map(linha => {
+                const col = linha.split(','); // Split simples por vírgula
+                if (col.length < 6) return '';
 
-            // Ignora o cabeçalho (i=0) e processa os dados
-            for (let i = 1; i < linhas.length; i++) {
-                // O regex abaixo lida com campos que possuem vírgulas dentro de aspas (Sessões Detalhadas)
-                const colunas = linhas[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
-                
-                if (!colunas || colunas.length < 6) continue;
+                // Mapeamento exato das colunas da Tabela_Mestra
+                const [disco, cap, fisico, sessoes, uso, nasa] = col;
 
-                // Mapeamento baseado no merge do Python:
-                const disco = colunas;
-                const capacidade = colunas[1];
-                const statusFisico = colunas[2];
-                const sessoes = colunas[3].replace(/"/g, '').replace(/\|/g, '<br>'); // Troca | por quebra de linha
-                const usoTotal = colunas[4];
-                const statusNASA = colunas;
+                let cor = 'status-free';
+                if (nasa === 'BLOCK') cor = 'status-block';
+                if (fisico === 'FALHA') cor = 'status-fail';
 
-                // Lógica de Veredito Visual
-                let classeStatus = 'status-free';
-                if (statusNASA === 'BLOCK') classeStatus = 'status-block'; // Ex: USN-0041 tem HOLD [4]
-                if (statusFisico === 'FALHA') classeStatus = 'status-fail'; // Ex: UVLBI+75 está em FALHA [3]
-
-                const novaLinha = `
-                    <tr class="${classeStatus}">
-                        <td><strong>${disco}</strong></td>
-                        <td>${capacidade} GB</td>
-                        <td>${statusFisico}</td>
-                        <td class="sessoes-text">${sessoes}</td>
-                        <td class="uso-bar">${usoTotal} GB</td>
-                        <td>${statusNASA}</td>
-                    </tr>
-                `;
-                corpo.innerHTML += novaLinha;
-            }
-        } catch (erro) {
-            console.error("Erro ao carregar fontes:", erro);
-            document.getElementById('corpo-tabela').innerHTML = '<tr><td colspan="6">Erro ao conectar com a Tabela_Mestra.csv.</td></tr>';
+                return `
+                    <tr class="${cor}">
+                        <td><b>${disco}</b></td>
+                        <td>${cap} GB</td>
+                        <td>${fisico}</td>
+                        <td style="font-size:11px">${sessoes.replace(/\|/g, '<br>')}</td>
+                        <td>${uso} GB</td>
+                        <td>${nasa}</td>
+                    </tr>`;
+            }).join('');
         }
-    }
-
-    // Inicializa a carga ao abrir o site
-    window.onload = carregarDados;
-</script>
-
+        window.onload = carregar;
+    </script>
 </body>
 </html>
